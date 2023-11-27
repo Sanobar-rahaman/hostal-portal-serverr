@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const app = express()
 require('dotenv').config()
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 const port = process.env.PORT || 5001
@@ -31,6 +32,7 @@ async function run() {
     const foodCollection = client.db('HostelDb').collection('foodItem')
     const mealCollection = client.db('HostelDb').collection('Meal')
     const memberShipCollection = client.db('HostelDb').collection('memberShip')
+    const paymentCollection = client.db('HostelDb').collection('payments')
 
     //foodItem related API
     app.get('/foodItems',async(req,res)=>{
@@ -58,6 +60,35 @@ async function run() {
         const memberShip = req.body
         const result = await memberShipCollection.find(memberShip).toArray()
         res.send(result)
+    })
+    // payment related API
+    app.post('/create-payment-intent',async(req,res)=>{
+        try{ const{ price } = req.body;
+         const amount = parseInt(price * 100);
+        //  console.log('amout inside',amount);
+         // console.log(amount ,'amout in the entent');
+         const paymentIntent = await stripe.paymentIntents.create({
+             amount:amount,
+             currency: 'usd',
+             payment_method_types: ['card']
+ 
+ 
+         });
+         res.send({
+            clientSecret:paymentIntent.client_secret
+         
+         })}
+         catch(error){
+             res.send(error)
+         }
+ 
+     })
+    //  now store yhe payments record to database
+    app.post('/payments',async(req,res)=>{
+        const payments = req.body
+        const result = await paymentCollection.insertOne(payments)
+        res.send(result)
+
     })
 
     // Send a ping to confirm a successful connection
